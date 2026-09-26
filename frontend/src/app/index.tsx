@@ -1,598 +1,577 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Animated, Dimensions, Platform, TextInput, Alert
+  View, Text, ScrollView, TouchableOpacity, TextInput,
+  ActivityIndicator, StyleSheet, Platform, Dimensions,
+  Alert, Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
+import Svg, { Path, Circle, Text as SvgText } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 
-// ⚡ CHANGE THIS to your Railway URL after deploying (e.g. https://mausam-ai-production.up.railway.app)
 const API_BASE_URL = 'https://mauamai-production.up.railway.app';
 
 const PERSONAS = [
-  { id: 'commuter', label: 'Commute', icon: '🚌' },
-  { id: 'fitness', label: 'Fitness', icon: '🏃' },
-  { id: 'agriculture', label: 'Agriculture', icon: '🌾' },
-  { id: 'traveler', label: 'Travel', icon: '✈️' },
-  { id: 'health', label: 'Health', icon: '🩺' },
-  { id: 'adventure', label: 'Beach/Surf', icon: '🏄' },
-  { id: 'family', label: 'Family', icon: '👨‍👩‍👧' },
-  { id: 'event', label: 'Events', icon: '🎉' },
+  { id: 'fitness',     label: 'Fitness',     icon: '🏃' },
+  { id: 'agriculture', label: 'Agriculture',  icon: '🌾' },
+  { id: 'traveler',    label: 'Travel',       icon: '✈️' },
+  { id: 'beach',       label: 'Beach/Surf',   icon: '🏄' },
+  { id: 'health',      label: 'Health',       icon: '🩺' },
+  { id: 'commuter',    label: 'Commute',      icon: '🚌' },
+  { id: 'family',      label: 'Family',       icon: '👨‍👩‍👧' },
+  { id: 'event',       label: 'Events',       icon: '🎉' },
 ];
 
-const WEATHER_ICONS: Record<string, string> = {
-  Clear: '☀️', Sunny: '☀️', Clouds: '⛅', Cloudy: '🌥️',
-  Rain: '🌧️', 'Light Rain': '🌦️', Thunderstorm: '⛈️',
-  Snow: '❄️', Mist: '🌫️', Haze: '🌫️', Drizzle: '🌦️',
+const WEATHER_ICONS: { [key: string]: string } = {
+  'Clear': '☀️', 'Sunny': '☀️', 'Clouds': '☁️', 'Cloudy': '🌥️',
+  'Rain': '🌧️', 'Drizzle': '🌦️', 'Thunderstorm': '⛈️', 'Snow': '❄️',
+  'Mist': '🌫️', 'Fog': '🌫️', 'Haze': '🌫️',
 };
 
-// --- Animated Card wrapper ---
-function FadeSlideCard({ children, delay = 0, style }: any) {
+// ── Fade + slide in animation wrapper ─────────────────────────
+function FadeSlide({ children, delay = 0, style }: any) {
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(24)).current;
-
+  const ty = useRef(new Animated.Value(18)).current;
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 500, delay, useNativeDriver: true }),
-      Animated.timing(translateY, { toValue: 0, duration: 500, delay, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 480, delay, useNativeDriver: true }),
+      Animated.timing(ty,      { toValue: 0, duration: 480, delay, useNativeDriver: true }),
     ]).start();
   }, []);
-
   return (
-    <Animated.View style={[style, { opacity, transform: [{ translateY }] }]}>
+    <Animated.View style={[{ opacity, transform: [{ translateY: ty }] }, style]}>
       {children}
     </Animated.View>
   );
 }
 
-// --- Persona Chip ---
-function PersonaChip({ persona, active, onPress }: any) {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const handlePress = () => {
-    Animated.sequence([
-      Animated.timing(scale, { toValue: 0.9, duration: 80, useNativeDriver: true }),
-      Animated.timing(scale, { toValue: 1, duration: 120, useNativeDriver: true }),
-    ]).start();
-    onPress(persona.id);
-  };
-
+// ── SVG Rain Probability Curve ─────────────────────────────────
+function RainCurve({ rainProb }: { rainProb: number }) {
+  const W = width - 64;
+  const H = 72;
+  const p = (x: number, frac: number) => ({
+    x,
+    y: H - Math.max(4, (rainProb * frac * H) / 100),
+  });
+  const pts = [p(0, 0.3), p(W * 0.25, 0.55), p(W * 0.5, 1.0), p(W * 0.75, 0.7), p(W, 0.4)];
+  const d = `M${pts[0].x},${pts[0].y} C${pts[0].x + W * 0.1},${pts[0].y} ${pts[1].x - W * 0.1},${pts[1].y} ${pts[1].x},${pts[1].y} S${pts[2].x - W * 0.08},${pts[2].y} ${pts[2].x},${pts[2].y} S${pts[3].x - W * 0.08},${pts[3].y} ${pts[3].x},${pts[3].y} S${pts[4].x - W * 0.08},${pts[4].y} ${pts[4].x},${pts[4].y}`;
+  const labels = ['Now', '1h', '3h', '6h'];
   return (
-    <TouchableOpacity activeOpacity={0.7} onPress={handlePress}>
-      <Animated.View style={[styles.personaChip, active && styles.personaChipActive, { transform: [{ scale }] }]}>
-        <Text style={styles.personaIcon}>{persona.icon}</Text>
-        <Text style={[styles.personaLabel, active && styles.personaLabelActive]}>{persona.label}</Text>
-      </Animated.View>
-    </TouchableOpacity>
-  );
-}
-
-// --- Rain Timeline ---
-function RainTimeline({ rainProb }: { rainProb: number }) {
-  const points = [
-    { label: 'Now', value: rainProb },
-    { label: '1h', value: Math.min(100, rainProb + 5) },
-    { label: '3h', value: Math.max(10, rainProb - 12) },
-    { label: '6h', value: Math.max(5, rainProb - 50) },
-  ];
-  const maxH = 80;
-
-  return (
-    <View style={styles.timelineContainer}>
-      <View style={styles.timelineLine} />
-      <View style={styles.timelinePoints}>
-        {points.map((p, i) => {
-          const dotBottom = (p.value / 100) * maxH;
-          return (
-            <View key={i} style={styles.timelineCol}>
-              <Text style={styles.timelineValue}>{p.label}: {p.value}%</Text>
-              <View style={[styles.timelineDot, { marginBottom: dotBottom }]} />
-              <Text style={styles.timelineLabel}>{p.label}</Text>
-            </View>
-          );
-        })}
-      </View>
+    <View>
+      {['100%', '50%', '0%'].map(l => (
+        <Text key={l} style={styles.curveAxisLabel}>{l}</Text>
+      ))}
+      <Svg width={W} height={H + 22}>
+        <Path d={d} stroke="rgba(86,204,242,0.9)" strokeWidth="2.5" fill="none" />
+        {[pts[0], pts[1], pts[2], pts[3]].map((pt, i) => (
+          <Circle key={i} cx={pt.x} cy={pt.y} r="4" fill="#56ccf2" />
+        ))}
+        {[pts[0].x, pts[1].x, pts[2].x, pts[3].x].map((x, i) => (
+          <SvgText key={i} x={x} y={H + 18} fontSize="11" fill="rgba(255,255,255,0.55)" textAnchor="middle">
+            {labels[i]}
+          </SvgText>
+        ))}
+      </Svg>
     </View>
   );
 }
 
-// ===================== MAIN APP =====================
+// ── Main App ───────────────────────────────────────────────────
 export default function App() {
-  const [isOnboarding, setIsOnboarding] = useState(true);
-  const [username, setUsername] = useState('');
-  const [locationName, setLocationName] = useState('');
+  const [isOnboarding, setIsOnboarding]           = useState(true);
+  const [username, setUsername]                   = useState('');
+  const [locationName, setLocationName]           = useState('');
+  const [activePersona, setActivePersona]         = useState('fitness');
+  const [destination, setDestination]             = useState('');
+  const [homeData, setHomeData]                   = useState<any>(null);
+  const [loading, setLoading]                     = useState(false);
+  const [error, setError]                         = useState<string | null>(null);
+  const [triggerAlert, setTriggerAlert]           = useState(false);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
-  
-  const [activePersona, setActivePersona] = useState('fitness');
-  const [triggerAlert, setTriggerAlert] = useState(false);
-  const [destination, setDestination] = useState('');
-  const [homeData, setHomeData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [memoryProfile, setMemoryProfile]         = useState<any>(null);
+  const [showSaved, setShowSaved]                 = useState(false);
+  const [activeTab, setActiveTab]                 = useState('dashboard');
 
-  // Check for existing profile on startup
+  const savedLocations = [
+    { name: 'Gorakhpur', temp: 33, aqi: 142 },
+    { name: 'New Delhi', temp: 33, aqi: 189 },
+    { name: 'Gonmutaha', temp: 34, aqi: 110 },
+  ];
+
+  // Load saved profile
   useEffect(() => {
-    const checkProfile = async () => {
+    (async () => {
       try {
-        const storedProfile = await AsyncStorage.getItem('userProfile');
-        if (storedProfile) {
-          const profile = JSON.parse(storedProfile);
-          setUsername(profile.username);
-          setLocationName(profile.location);
-          setActivePersona(profile.persona);
+        const raw = await AsyncStorage.getItem('userProfile');
+        if (raw) {
+          const p = JSON.parse(raw);
+          setUsername(p.username || '');
+          setLocationName(p.location || '');
+          setActivePersona(p.persona || 'fitness');
           setIsOnboarding(false);
         }
-      } catch (e) {
-        console.warn("AsyncStorage unavailable, falling back to memory.", e);
+      } catch {
+        if (memoryProfile) {
+          setUsername(memoryProfile.username || '');
+          setLocationName(memoryProfile.location || '');
+          setActivePersona(memoryProfile.persona || 'fitness');
+          setIsOnboarding(false);
+        }
       }
-    };
-    checkProfile();
+    })();
   }, []);
-
-  // In-memory fallback
-  const [memoryProfile, setMemoryProfile] = useState<any>(null);
 
   const detectLocation = async () => {
     setIsDetectingLocation(true);
     try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission denied', 'Allow location access to auto-detect.');
-        setIsDetectingLocation(false);
-        return;
-      }
-      let location = await Location.getCurrentPositionAsync({});
-      let geocode = await Location.reverseGeocodeAsync({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude
-      });
-      
-      if (geocode && geocode.length > 0) {
-        const city = geocode[0].city || geocode[0].region || "Unknown City";
-        setLocationName(city);
-      }
-    } catch (e) {
-      console.error(e);
-      Alert.alert('Error', 'Could not detect location.');
-    } finally {
-      setIsDetectingLocation(false);
-    }
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') { Alert.alert('Permission denied'); return; }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const geo = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      if (geo?.length) setLocationName(geo[0].city || geo[0].region || 'Unknown');
+    } catch { Alert.alert('Error', 'Could not detect location.'); }
+    finally { setIsDetectingLocation(false); }
   };
 
   const completeOnboarding = async () => {
-    if (!username.trim() || !locationName.trim()) {
-      Alert.alert('Missing Info', 'Please enter your name and location.');
-      return;
-    }
+    if (!username.trim() || !locationName.trim()) { Alert.alert('Missing Info', 'Please enter your name and city.'); return; }
     const profile = { username, location: locationName, persona: activePersona };
-    try {
-      await AsyncStorage.setItem('userProfile', JSON.stringify(profile));
-    } catch (e) {
-      console.warn("AsyncStorage unavailable, using memory.");
-      setMemoryProfile(profile);
-    }
+    try { await AsyncStorage.setItem('userProfile', JSON.stringify(profile)); }
+    catch { setMemoryProfile(profile); }
     setIsOnboarding(false);
   };
 
   const fetchHomeData = async () => {
     if (isOnboarding) return;
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       let url = `${API_BASE_URL}/api/personalized-home?persona=${activePersona}&location=${locationName}&username=${username}&trigger_alert=${triggerAlert}`;
-      if (activePersona === 'traveler' && destination) {
-        url += `&destination=${encodeURIComponent(destination)}`;
-      }
-      const response = await axios.get(url);
-      setHomeData(response.data);
-    } catch (err) {
-      console.error(err);
-      setError('Failed to fetch weather data.');
-    } finally {
-      setLoading(false);
-    }
+      if (activePersona === 'traveler' && destination) url += `&destination=${encodeURIComponent(destination)}`;
+      const res = await axios.get(url);
+      setHomeData(res.data);
+    } catch { setError('Failed to fetch weather data. Check connection.'); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => {
     if (!isOnboarding) {
-      // Debounce destination fetches slightly or rely on a "Search" button. We'll fetch immediately if changed, but limit in a real app.
-      const timer = setTimeout(() => fetchHomeData(), 500);
-      return () => clearTimeout(timer);
+      const t = setTimeout(() => fetchHomeData(), 500);
+      return () => clearTimeout(t);
     }
   }, [activePersona, triggerAlert, isOnboarding, destination]);
 
-  const updatePersona = async (newPersona: string) => {
-    setActivePersona(newPersona);
+  const updatePersona = async (id: string) => {
+    setActivePersona(id);
     try {
-      const storedProfile = await AsyncStorage.getItem('userProfile');
-      if (storedProfile) {
-        const profile = JSON.parse(storedProfile);
-        profile.persona = newPersona;
-        await AsyncStorage.setItem('userProfile', JSON.stringify(profile));
-      }
-    } catch(e) {}
+      const raw = await AsyncStorage.getItem('userProfile');
+      if (raw) { const p = JSON.parse(raw); p.persona = id; await AsyncStorage.setItem('userProfile', JSON.stringify(p)); }
+    } catch {}
   };
 
+  // ── ONBOARDING ────────────────────────────────────────────────
   if (isOnboarding) {
     return (
-      <LinearGradient colors={['#dbe9f8', '#eef3fa', '#f5f7fb']} style={styles.container}>
-        <View style={styles.onboardingContainer}>
-          <Text style={styles.headerTitle}>Welcome to Mausam AI+</Text>
-          <Text style={styles.subtitle}>Let's personalize your weather.</Text>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>What should we call you?</Text>
-            <TextInput 
-              style={styles.input} 
-              placeholder="Your Name" 
-              value={username}
-              onChangeText={setUsername}
-            />
-          </View>
+      <LinearGradient colors={['#0d1b3e', '#162754', '#1e3a6e']} style={styles.flex}>
+        <SafeAreaView style={styles.flex}>
+          <ScrollView contentContainerStyle={styles.obScroll}>
+            <View style={styles.obHeader}>
+              <Text style={styles.emblemLarge}>🪬</Text>
+              <Text style={styles.obTitle}>MAUSAM SATHI</Text>
+              <Text style={styles.obIMD}>INDIA METEOROLOGICAL DEPARTMENT</Text>
+            </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Where are you located?</Text>
-            <View style={styles.locationInputRow}>
-              <TextInput 
-                style={[styles.input, {flex: 1, marginBottom: 0}]} 
-                placeholder="City Name" 
-                value={locationName}
-                onChangeText={setLocationName}
-              />
-              <TouchableOpacity style={styles.detectBtn} onPress={detectLocation} disabled={isDetectingLocation}>
-                {isDetectingLocation ? <ActivityIndicator color="#fff" size="small"/> : <Text style={styles.detectBtnText}>📍 Auto</Text>}
+            <View style={styles.glassCard}>
+              <Text style={styles.obWelcome}>Let's personalize your weather experience.</Text>
+
+              <Text style={styles.inputLabel}>Your Name</Text>
+              <TextInput style={styles.input} placeholder="Enter your name" placeholderTextColor="rgba(255,255,255,0.35)" value={username} onChangeText={setUsername} />
+
+              <Text style={styles.inputLabel}>Your City</Text>
+              <View style={styles.locationRow}>
+                <TextInput style={[styles.input, { flex: 1, marginBottom: 0 }]} placeholder="City name" placeholderTextColor="rgba(255,255,255,0.35)" value={locationName} onChangeText={setLocationName} />
+                <TouchableOpacity style={styles.detectBtn} onPress={detectLocation} disabled={isDetectingLocation}>
+                  {isDetectingLocation ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ fontSize: 20 }}>📍</Text>}
+                </TouchableOpacity>
+              </View>
+
+              <Text style={[styles.inputLabel, { marginTop: 20 }]}>Primary Focus</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                <View style={{ flexDirection: 'row', gap: 10, paddingBottom: 8 }}>
+                  {PERSONAS.map(p => (
+                    <TouchableOpacity key={p.id} onPress={() => setActivePersona(p.id)} style={[styles.obChip, activePersona === p.id && styles.obChipActive]}>
+                      <Text style={{ fontSize: 26 }}>{p.icon}</Text>
+                      <Text style={[styles.obChipLabel, activePersona === p.id && styles.obChipLabelActive]}>{p.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+
+              <TouchableOpacity style={styles.startBtn} onPress={completeOnboarding}>
+                <Text style={styles.startBtnText}>Get Started →</Text>
               </TouchableOpacity>
             </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>What's your primary focus?</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.personaRow}>
-              {PERSONAS.map(p => (
-                <PersonaChip key={p.id} persona={p} active={activePersona === p.id} onPress={setActivePersona} />
-              ))}
-            </ScrollView>
-          </View>
-
-          <TouchableOpacity style={styles.startBtn} onPress={completeOnboarding}>
-            <Text style={styles.startBtnText}>Get Started</Text>
-          </TouchableOpacity>
-        </View>
+          </ScrollView>
+        </SafeAreaView>
       </LinearGradient>
     );
   }
 
-  const getWidget = (type: string) => homeData?.widgets?.find((w: any) => w.type === type);
+  // ── DERIVED DATA ──────────────────────────────────────────────
+  const getW = (type: string) => homeData?.widgets?.find((w: any) => w.type === type);
+  const currentW = getW('current_weather');
+  const aqiW    = getW('aqi');
+  const uvW     = getW('uv');
 
-  const currentWeather = getWidget('current_weather');
-  const aqiWidget = getWidget('aqi');
-  const uvWidget = getWidget('uv');
-  const rainWidget = getWidget('rain_forecast') || getWidget('rain_probability');
+  const temp      = currentW?.data?.temp      ?? '--';
+  const condition = currentW?.data?.condition ?? 'Clear';
+  const wind      = currentW?.data?.wind      ?? '--';
+  const humidity  = currentW?.data?.humidity  ?? '--';
+  const rainProb  = currentW?.data?.rain_prob ?? 50;
+  const aqiVal    = aqiW?.data?.value         ?? '--';
+  const uvVal     = uvW?.data?.index          ?? '--';
+  const wIcon     = WEATHER_ICONS[condition]  ?? '🌤️';
 
-  const temp = currentWeather?.data?.temp ?? '--';
-  const condition = currentWeather?.data?.condition ?? 'Clear';
-  const wind = currentWeather?.data?.wind ?? '--';
-  const humidity = currentWeather?.data?.humidity ?? '--';
-  const rainProb = currentWeather?.data?.rain_prob ?? 50;
-  const aqiVal = aqiWidget?.data?.value ?? '--';
-  const aqiStatus = aqiWidget?.data?.status ?? '--';
-  const uvVal = uvWidget?.data?.index ?? '--';
-  const uvStatus = uvWidget?.data?.status ?? '--';
-  const weatherIcon = WEATHER_ICONS[condition] || '🌤️';
-
-  const getDynamicBackground = () => {
-    const hour = new Date().getHours();
-    const isNight = hour < 6 || hour > 18;
-    const cond = (condition || '').toLowerCase();
-    
-    if (isNight) {
-      return ['#0f2027', '#203a43', '#2c5364']; // Deep night
-    }
-    if (cond.includes('rain') || cond.includes('storm')) {
-      return ['#4b6cb7', '#182848']; // Moody dark rainy blue
-    }
-    if (cond.includes('cloud')) {
-      return ['#8e9eab', '#eef2f3']; // Frosted silver clouds
-    }
-    return ['#56ccf2', '#2f80ed']; // Bright sunny blue
+  const aqiBg = (v: any) => {
+    const n = Number(v);
+    if (n <= 50)  return 'rgba(0,200,100,0.22)';
+    if (n <= 100) return 'rgba(255,220,0,0.18)';
+    if (n <= 150) return 'rgba(255,140,0,0.22)';
+    return 'rgba(255,60,60,0.22)';
   };
 
+  // ── MAIN SCREEN ───────────────────────────────────────────────
   return (
-    <LinearGradient colors={getDynamicBackground()} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <LinearGradient colors={['#0d1b3e', '#0f2147', '#132158']} style={styles.flex}>
+      <SafeAreaView style={styles.flex}>
 
-        <FadeSlideCard delay={0} style={[styles.header, styles.glassCard, { marginBottom: 12, paddingVertical: 12, paddingHorizontal: 16 }]}>
-          <View>
-            <Text style={styles.greetingText}>Hello, {username}</Text>
-            <Text style={styles.headerTitle}>Mausam AI+</Text>
+        {/* ── HEADER ── */}
+        <FadeSlide delay={0}>
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <Text style={styles.emblemMd}>🪬</Text>
+              <View>
+                <Text style={styles.appTitle}>MAUSAM SATHI</Text>
+                <Text style={styles.imdText}>INDIA METEOROLOGICAL DEPARTMENT</Text>
+              </View>
+            </View>
+            <TouchableOpacity onPress={() => setIsOnboarding(true)} style={{ opacity: 0.4 }}>
+              <Text style={{ fontSize: 22 }}>⚙️</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={() => setIsOnboarding(true)}><Text style={styles.settingsIcon}>⚙️</Text></TouchableOpacity>
-        </FadeSlideCard>
+        </FadeSlide>
 
-        <FadeSlideCard delay={50}>
-          <View style={styles.locationBadge}>
-            <Text style={styles.locationText}>📍 {locationName || "Unknown Location"}</Text>
-          </View>
-        </FadeSlideCard>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        <FadeSlideCard delay={100}>
-          <TouchableOpacity
-            style={[styles.alertBtn, triggerAlert && styles.alertBtnActive]}
-            activeOpacity={0.8}
-            onPress={() => setTriggerAlert(!triggerAlert)}
-          >
-            <Text style={styles.alertBtnText}>
-              {triggerAlert ? '✅ Alert Active' : 'Trigger Mock Severe Alert'}
-            </Text>
-          </TouchableOpacity>
-        </FadeSlideCard>
-
-        {homeData?.alert && (
-          <FadeSlideCard delay={0} style={styles.severeAlert}>
-            <Text style={styles.severeAlertTitle}>⚠ SEVERE WEATHER ALERT</Text>
-            <Text style={styles.severeAlertMsg}>{homeData.alert.message}</Text>
-          </FadeSlideCard>
-        )}
-
-        <FadeSlideCard delay={150} style={styles.personaCard}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.personaRow}>
-            {PERSONAS.map(p => (
-              <PersonaChip key={p.id} persona={p} active={activePersona === p.id} onPress={updatePersona} />
-            ))}
-          </ScrollView>
-        </FadeSlideCard>
-
-        {/* Destination input when traveler is active */}
-        {activePersona === 'traveler' && (
-          <FadeSlideCard delay={180}>
-             <TextInput 
-              style={[styles.input, {marginBottom: 14}]} 
-              placeholder="Enter destination (e.g. Mumbai)" 
-              value={destination}
-              onChangeText={setDestination}
-            />
-          </FadeSlideCard>
-        )}
-
-        {loading && !homeData ? (
-          <ActivityIndicator size="large" color="#5b9bd5" style={{ marginTop: 40 }} />
-        ) : error ? (
-          <Text style={styles.errorText}>{error}</Text>
-        ) : homeData ? (
-          <>
-            <FadeSlideCard delay={200} style={styles.glassCard}>
-              <Text style={styles.cardTitle}>Current Conditions (AI-Derived)</Text>
-              <View style={styles.currentRow}>
-                <View style={styles.tempBlock}>
-                  <Text style={styles.tempText}>{Math.round(temp)}°C</Text>
-                  <Text style={styles.weatherEmoji}>{weatherIcon}</Text>
-                </View>
-                <View style={styles.conditionBlock}>
-                  <Text style={styles.conditionText}>Condition: {condition}</Text>
-                  <Text style={styles.conditionText}>Wind: {wind} m/s</Text>
-                  <Text style={styles.conditionText}>Humidity: {humidity}%</Text>
+          {/* ── LOCATION BAR ── */}
+          <FadeSlide delay={80}>
+            <View style={styles.locationBar}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ fontSize: 15 }}>📍</Text>
+                <Text style={styles.locName}>{locationName.toUpperCase()}</Text>
+                <View style={styles.dots}>
+                  <View style={[styles.dot, styles.dotActive]} />
+                  <View style={styles.dot} />
+                  <View style={styles.dot} />
                 </View>
               </View>
-            </FadeSlideCard>
+              <TouchableOpacity style={styles.savedBtn} onPress={() => setShowSaved(v => !v)}>
+                <Text style={styles.savedBtnTxt}>🏙 Saved Locations</Text>
+              </TouchableOpacity>
+            </View>
 
-            <FadeSlideCard delay={300} style={styles.dualRow}>
-              <View style={[styles.glassCardSmall, { marginRight: 8 }]}>
-                <Text style={styles.smallCardTitle}>Air Quality (AQI)</Text>
-                <Text style={styles.smallCardValue}>{aqiVal}</Text>
-                <Text style={styles.smallCardStatus}>({aqiStatus})</Text>
+            {showSaved && (
+              <View style={[styles.glassCard, { marginTop: 4 }]}>
+                {savedLocations.map((loc, i) => (
+                  <TouchableOpacity key={i} style={styles.savedRow} onPress={() => { setLocationName(loc.name); setShowSaved(false); }}>
+                    <Text style={styles.savedLocName}>{loc.name}</Text>
+                    <View style={{ flexDirection: 'row', gap: 14 }}>
+                      <Text style={styles.savedLocDetail}>{loc.temp}°C Current</Text>
+                      <Text style={[styles.savedLocDetail, { color: '#f59e0b' }]}>AQI {loc.aqi}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
               </View>
-              <View style={[styles.glassCardSmall, { marginLeft: 8 }]}>
-                <Text style={styles.smallCardTitle}>UV Index</Text>
-                <Text style={styles.smallCardValue}>{uvVal}</Text>
-                <Text style={styles.smallCardStatus}>({uvStatus})</Text>
-              </View>
-            </FadeSlideCard>
+            )}
+          </FadeSlide>
 
-            <FadeSlideCard delay={400} style={styles.glassCard}>
-              <Text style={styles.cardTitle}>Rain Probability Timeline</Text>
-              <RainTimeline rainProb={rainProb} />
-            </FadeSlideCard>
-
-            <FadeSlideCard delay={500} style={styles.glassCard}>
-              <Text style={styles.cardTitle}>Forecast Summary</Text>
-              <View style={styles.forecastRow}><Text style={styles.forecastDay}>Tomorrow:</Text><Text style={styles.forecastVal}>{Math.round(temp - 3)}/{Math.round(temp - 10)}, Thunderstorms ⛈️</Text></View>
-              <View style={styles.forecastRow}><Text style={styles.forecastDay}>Thu:</Text><Text style={styles.forecastVal}>{Math.round(temp - 2)}/{Math.round(temp - 9)}, Cloudy 🌥️</Text></View>
-              <View style={styles.forecastRow}><Text style={styles.forecastDay}>Fri:</Text><Text style={styles.forecastVal}>{Math.round(temp - 1)}/{Math.round(temp - 8)}, Mostly Sunny ☀️</Text></View>
-            </FadeSlideCard>
-
-            {/* Persona-Specific Widgets */}
-            {homeData?.widgets?.filter((w: any) => !['current_weather', 'aqi', 'uv', 'rain_forecast', 'rain_probability'].includes(w.type)).map((widget: any, i: number) => {
-              if (widget.type === 'route_weather') {
-                return (
-                  <FadeSlideCard key={`${widget.type}-${i}`} delay={600 + i * 100} style={styles.glassCard}>
-                    <Text style={styles.cardTitle}>{widget.title}</Text>
-                    {widget.data.message ? (
-                      <Text style={styles.conditionText}>{widget.data.message}</Text>
-                    ) : (
-                      <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10}}>
-                         <View style={{alignItems: 'center'}}>
-                           <Text style={{fontSize: 12, color: '#666'}}>Start</Text>
-                           <Text style={{fontSize: 24}}>{WEATHER_ICONS[widget.data.origin.condition] || '🌤️'}</Text>
-                           <Text style={{fontWeight: 'bold', fontSize: 16}}>{widget.data.origin.temp}°C</Text>
-                         </View>
-                         <Text style={{color: '#999'}}>→</Text>
-                         <View style={{alignItems: 'center'}}>
-                           <Text style={{fontSize: 12, color: '#666'}}>En Route</Text>
-                           <Text style={{fontSize: 24}}>{WEATHER_ICONS[widget.data.midpoint.condition] || '☁️'}</Text>
-                           <Text style={{fontWeight: 'bold', fontSize: 16}}>{widget.data.midpoint.temp}°C</Text>
-                         </View>
-                         <Text style={{color: '#999'}}>→</Text>
-                         <View style={{alignItems: 'center'}}>
-                           <Text style={{fontSize: 12, color: '#666'}}>End</Text>
-                           <Text style={{fontSize: 24}}>{WEATHER_ICONS[widget.data.destination.condition] || '🌤️'}</Text>
-                           <Text style={{fontWeight: 'bold', fontSize: 16}}>{widget.data.destination.temp}°C</Text>
-                         </View>
+          {/* ── PERSONA CHIPS ── */}
+          <FadeSlide delay={140}>
+            <View style={styles.glassCard}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={{ flexDirection: 'row', gap: 18, paddingHorizontal: 2 }}>
+                  {PERSONAS.map(p => (
+                    <TouchableOpacity key={p.id} onPress={() => updatePersona(p.id)} style={{ alignItems: 'center', gap: 6 }}>
+                      <View style={[styles.pIconCircle, activePersona === p.id && styles.pIconCircleActive]}>
+                        <Text style={{ fontSize: 22 }}>{p.icon}</Text>
                       </View>
-                    )}
-                    {/* Removed Score Explanation for cleaner UI */}
-                  </FadeSlideCard>
-                );
-              }
-
-              return (
-                <FadeSlideCard key={`${widget.type}-${i}`} delay={600 + i * 100} style={styles.glassCard}>
-                  <Text style={styles.cardTitle}>{widget.title}</Text>
-                  {Object.entries(widget.data).map(([key, value]) => (
-                    <Text key={key} style={styles.conditionText}>
-                      <Text style={{ fontWeight: '600' }}>{key.replace(/_/g, ' ')}: </Text>
-                      {Array.isArray(value) ? value.join(', ') : String(value)}
-                    </Text>
+                      <Text style={[styles.pLabel, activePersona === p.id && styles.pLabelActive]}>{p.label}</Text>
+                    </TouchableOpacity>
                   ))}
-                  {/* Removed Score Explanation for cleaner UI */}
-                </FadeSlideCard>
-              );
-            })}
+                </View>
+              </ScrollView>
+            </View>
+          </FadeSlide>
 
-            <View style={{ height: 100 }} />
-          </>
-        ) : null}
-      </ScrollView>
+          {/* ── DESTINATION (Travel) ── */}
+          {activePersona === 'traveler' && (
+            <FadeSlide delay={170}>
+              <TextInput style={[styles.glassCard, styles.destInput]} placeholder="Enter destination (e.g. Mumbai)" placeholderTextColor="rgba(255,255,255,0.35)" value={destination} onChangeText={setDestination} />
+            </FadeSlide>
+          )}
 
-      {/* ---- Bottom Tab Bar ---- */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.tab}>
-          <Text style={styles.tabIconActive}>🏠</Text>
-          <Text style={styles.tabLabelActive}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tab}>
-          <Text style={styles.tabIcon}>🔍</Text>
-          <Text style={styles.tabLabel}>Explore</Text>
-        </TouchableOpacity>
-      </View>
+          {/* ── SEVERE ALERT ── */}
+          {homeData?.alert && (
+            <FadeSlide delay={0}>
+              <View style={styles.severeAlert}>
+                <Text style={styles.severeTitle}>⚠ SEVERE WEATHER ALERT</Text>
+                <Text style={styles.severeMsg}>{homeData.alert.message}</Text>
+              </View>
+            </FadeSlide>
+          )}
+
+          {loading && !homeData ? (
+            <ActivityIndicator size="large" color="#56ccf2" style={{ marginTop: 60 }} />
+          ) : error ? (
+            <Text style={styles.errorTxt}>{error}</Text>
+          ) : homeData ? (
+            <>
+              {/* ── CURRENT WEATHER ── */}
+              <FadeSlide delay={200}>
+                <View style={styles.glassCard}>
+                  <Text style={styles.cardLabel}>Current Weather</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View>
+                      <Text style={styles.tempBig}>{Math.round(temp as number)}°C</Text>
+                      <View style={styles.metricRow}>
+                        <Text style={styles.metricIcon}>💨</Text>
+                        <Text style={styles.metricTxt}>Wind: {wind} m/s</Text>
+                      </View>
+                      <View style={styles.metricRow}>
+                        <Text style={styles.metricIcon}>💧</Text>
+                        <Text style={styles.metricTxt}>Humidity: {humidity}%</Text>
+                      </View>
+                    </View>
+                    <Text style={{ fontSize: 68 }}>{wIcon}</Text>
+                  </View>
+                </View>
+              </FadeSlide>
+
+              {/* ── AQI + UV ── */}
+              <FadeSlide delay={280}>
+                <View style={styles.dualRow}>
+                  <View style={[styles.glassCardSm, { backgroundColor: aqiBg(aqiVal) }]}>
+                    <Text style={{ fontSize: 28 }}>🧑</Text>
+                    <Text style={styles.smLabel}>AQI</Text>
+                    <Text style={styles.smValue}>{aqiVal}</Text>
+                  </View>
+                  <View style={[styles.glassCardSm, { backgroundColor: 'rgba(255,200,50,0.16)' }]}>
+                    <Text style={{ fontSize: 28 }}>☀️</Text>
+                    <Text style={styles.smLabel}>UV Index</Text>
+                    <Text style={styles.smValue}>{uvVal}</Text>
+                  </View>
+                </View>
+              </FadeSlide>
+
+              {/* ── RAIN CURVE ── */}
+              <FadeSlide delay={360}>
+                <View style={styles.glassCard}>
+                  <Text style={styles.cardLabel}>Rain Probability Timeline</Text>
+                  <RainCurve rainProb={rainProb as number} />
+                </View>
+              </FadeSlide>
+
+              {/* ── PERSONA WIDGETS ── */}
+              {homeData?.widgets
+                ?.filter((w: any) => !['current_weather', 'aqi', 'uv', 'rain_forecast', 'rain_probability'].includes(w.type))
+                .map((widget: any, i: number) => {
+                  if (widget.type === 'route_weather') {
+                    return (
+                      <FadeSlide key={widget.type + i} delay={440 + i * 70}>
+                        <View style={styles.glassCard}>
+                          <Text style={styles.cardLabel}>{widget.title}</Text>
+                          {widget.data.message ? (
+                            <Text style={styles.metricTxt}>{widget.data.message}</Text>
+                          ) : (
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                              {[
+                                { label: 'Start',    d: widget.data.origin },
+                                { label: 'En Route', d: widget.data.midpoint },
+                                { label: 'End',      d: widget.data.destination },
+                              ].map((leg, li) => (
+                                <View key={li} style={{ alignItems: 'center', flex: 1 }}>
+                                  <Text style={styles.routeLegLabel}>{leg.label}</Text>
+                                  <Text style={{ fontSize: 32 }}>{WEATHER_ICONS[leg.d?.condition] || '🌤️'}</Text>
+                                  <Text style={styles.routeTemp}>{leg.d?.temp}°C</Text>
+                                  {li < 2 && <Text style={styles.arrow}>→</Text>}
+                                </View>
+                              ))}
+                            </View>
+                          )}
+                        </View>
+                      </FadeSlide>
+                    );
+                  }
+                  return (
+                    <FadeSlide key={widget.type + i} delay={440 + i * 70}>
+                      <View style={styles.glassCard}>
+                        <Text style={styles.cardLabel}>{widget.title}</Text>
+                        {Object.entries(widget.data).map(([k, v]) => (
+                          <View key={k} style={styles.metricRow}>
+                            <Text style={styles.widgetKey}>{k.replace(/_/g, ' ')}: </Text>
+                            <Text style={styles.metricTxt}>{Array.isArray(v) ? v.join(', ') : String(v)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </FadeSlide>
+                  );
+                })}
+
+              <View style={{ height: 110 }} />
+            </>
+          ) : null}
+        </ScrollView>
+
+        {/* ── BOTTOM NAV ── */}
+        <View style={styles.bottomNav}>
+          {[{ id: 'dashboard', icon: '🏠', label: 'Dashboard' }, { id: 'maps', icon: '🗺️', label: 'Maps' }].map(tab => (
+            <TouchableOpacity key={tab.id} style={styles.navTab} onPress={() => setActiveTab(tab.id)}>
+              <Text style={[styles.navIcon, activeTab === tab.id && styles.navIconActive]}>{tab.icon}</Text>
+              <Text style={[styles.navLabel, activeTab === tab.id && styles.navLabelActive]}>{tab.label}</Text>
+            </TouchableOpacity>
+          ))}
+
+          {/* Central FAB — AI Globe */}
+          <TouchableOpacity style={styles.fabWrap} onPress={() => setTriggerAlert(v => !v)}>
+            <LinearGradient colors={['#56ccf2', '#2f80ed']} style={styles.fab}>
+              <Text style={styles.fabIcon}>🌐</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {[{ id: 'alerts', icon: '🔔', label: 'Alerts' }, { id: 'settings', icon: '⚙️', label: 'Settings' }].map(tab => (
+            <TouchableOpacity key={tab.id} style={styles.navTab} onPress={() => { if (tab.id === 'settings') setIsOnboarding(true); else setActiveTab(tab.id); }}>
+              <Text style={[styles.navIcon, activeTab === tab.id && styles.navIconActive]}>{tab.icon}</Text>
+              <Text style={[styles.navLabel, activeTab === tab.id && styles.navLabelActive]}>{tab.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+      </SafeAreaView>
     </LinearGradient>
   );
 }
 
-// ===================== STYLES =====================
+// ── STYLES ────────────────────────────────────────────────────
+const G = {
+  backgroundColor: 'rgba(255,255,255,0.07)',
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.12)',
+  borderRadius: 20,
+};
+
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: Platform.OS === 'web' ? 20 : 50 },
+  flex: { flex: 1 },
 
   // Onboarding
-  onboardingContainer: { flex: 1, justifyContent: 'center', paddingHorizontal: 30 },
-  subtitle: { fontSize: 16, color: '#4a5568', marginBottom: 30, textAlign: 'center' },
-  inputGroup: { marginBottom: 24 },
-  inputLabel: { fontSize: 14, fontWeight: '600', color: '#1a2a3a', marginBottom: 8 },
-  input: { backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 12, padding: 14, fontSize: 16, color: '#333', borderWidth: 1, borderColor: '#dbe9f8' },
-  locationInputRow: { flexDirection: 'row', alignItems: 'center' },
-  detectBtn: { backgroundColor: '#5b9bd5', padding: 14, borderRadius: 12, marginLeft: 10, justifyContent: 'center' },
-  detectBtnText: { color: '#fff', fontWeight: 'bold' },
-  startBtn: { backgroundColor: '#1a2a3a', padding: 16, borderRadius: 16, alignItems: 'center', marginTop: 20 },
-  startBtnText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  obScroll:      { flexGrow: 1, paddingHorizontal: 22, paddingTop: 56, paddingBottom: 36 },
+  obHeader:      { alignItems: 'center', marginBottom: 32 },
+  emblemLarge:   { fontSize: 60, marginBottom: 8 },
+  obTitle:       { fontSize: 28, fontWeight: '900', color: '#fff', letterSpacing: 3 },
+  obIMD:         { fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5, marginTop: 4, textAlign: 'center' },
+  obWelcome:     { fontSize: 16, color: 'rgba(255,255,255,0.75)', marginBottom: 22, textAlign: 'center' },
+  obChip:        { alignItems: 'center', padding: 12, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', minWidth: 70 },
+  obChipActive:  { backgroundColor: 'rgba(86,204,242,0.2)', borderColor: 'rgba(86,204,242,0.5)' },
+  obChipLabel:   { fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 4 },
+  obChipLabelActive: { color: '#56ccf2' },
 
   // Header
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  greetingText: { fontSize: 14, color: '#4a5568', fontWeight: '500' },
-  headerTitle: { fontSize: 28, fontWeight: '800', color: '#1a2a3a' },
-  settingsIcon: { fontSize: 24 },
+  header:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10 },
+  headerLeft:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  emblemMd:     { fontSize: 46 },
+  appTitle:     { fontSize: 20, fontWeight: '900', color: '#fff', letterSpacing: 2 },
+  imdText:      { fontSize: 9, color: 'rgba(255,255,255,0.45)', letterSpacing: 1.2, marginTop: 2 },
 
-  // Location badge
-  locationBadge: { alignSelf: 'center', backgroundColor: '#5b9bd5', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, marginBottom: 12 },
-  locationText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-
-  // Alert button
-  alertBtn: { alignSelf: 'center', borderWidth: 2, borderColor: '#e8a838', backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 8, marginBottom: 16 },
-  alertBtnActive: { backgroundColor: '#e8a838' },
-  alertBtnText: { color: '#333', fontWeight: '700', fontSize: 14 },
-
-  // Severe alert
-  severeAlert: { backgroundColor: '#fee2e2', borderWidth: 2, borderColor: '#ef4444', borderRadius: 16, padding: 16, marginBottom: 14 },
-  severeAlertTitle: { fontSize: 16, fontWeight: '800', color: '#dc2626', marginBottom: 4 },
-  severeAlertMsg: { fontSize: 14, color: '#991b1b' },
-
-  // Persona selector
-  personaCard: { backgroundColor: 'rgba(255,255,255,0.55)', borderRadius: 20, padding: 12, marginBottom: 14, ...Platform.select({ web: { backdropFilter: 'blur(12px)' }, default: {} }) },
-  personaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 5 },
-  personaChip: { alignItems: 'center', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 16, minWidth: 70 },
-  personaChipActive: { backgroundColor: 'rgba(91,155,213,0.25)', borderRadius: 16 },
-  personaIcon: { fontSize: 28, marginBottom: 4 },
-  personaLabel: { fontSize: 12, fontWeight: '600', color: '#666' },
-  personaLabelActive: { color: '#2a6496' },
+  // Scroll
+  scroll: { paddingHorizontal: 16, paddingBottom: 20 },
 
   // Glass card
-  glassCard: {
-    backgroundColor: 'rgba(255,255,255,0.65)',
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 14,
-    ...Platform.select({
-      web: { backdropFilter: 'blur(14px)', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
-    }),
-  },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#2a3a4a', marginBottom: 12 },
+  glassCard: { ...G, padding: 16, marginBottom: 12 },
+  cardLabel:  { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 },
 
-  // Current conditions
-  currentRow: { flexDirection: 'row', alignItems: 'center' },
-  tempBlock: { flexDirection: 'row', alignItems: 'center', marginRight: 20 },
-  tempText: { fontSize: 48, fontWeight: '800', color: '#1a2a3a' },
-  weatherEmoji: { fontSize: 40, marginLeft: 8 },
-  conditionBlock: { flex: 1 },
-  conditionText: { fontSize: 14, color: '#4a5568', marginBottom: 4, lineHeight: 20 },
+  // Inputs
+  inputLabel:   { fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 8, fontWeight: '600' },
+  input:        { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: 14, fontSize: 16, color: '#fff', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', marginBottom: 16 },
+  locationRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  detectBtn:    { backgroundColor: 'rgba(86,204,242,0.25)', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(86,204,242,0.35)' },
+  startBtn:     { backgroundColor: 'rgba(86,204,242,0.25)', padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 22, borderWidth: 1, borderColor: 'rgba(86,204,242,0.45)' },
+  startBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  destInput:    { fontSize: 15, color: '#fff', paddingVertical: 14 },
 
-  // Dual row (AQI + UV)
-  dualRow: { flexDirection: 'row', marginBottom: 14 },
-  glassCardSmall: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.65)',
-    borderRadius: 18,
-    padding: 16,
-    alignItems: 'center',
-    ...Platform.select({
-      web: { backdropFilter: 'blur(14px)', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
-    }),
-  },
-  smallCardTitle: { fontSize: 13, fontWeight: '600', color: '#4a5568', marginBottom: 6 },
-  smallCardValue: { fontSize: 28, fontWeight: '800', color: '#1a2a3a' },
-  smallCardStatus: { fontSize: 12, color: '#888', marginTop: 2 },
+  // Location bar
+  locationBar:   { ...G, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 13, marginBottom: 8 },
+  locName:       { fontSize: 17, fontWeight: '800', color: '#fff', letterSpacing: 1 },
+  dots:          { flexDirection: 'row', gap: 4, marginLeft: 8 },
+  dot:           { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.22)' },
+  dotActive:     { width: 16, backgroundColor: '#56ccf2', borderRadius: 3 },
+  savedBtn:      { backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 11, paddingVertical: 6, borderRadius: 11, borderWidth: 1, borderColor: 'rgba(255,255,255,0.13)' },
+  savedBtnTxt:   { fontSize: 12, color: 'rgba(255,255,255,0.75)', fontWeight: '600' },
+  savedRow:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+  savedLocName:  { fontSize: 15, fontWeight: '600', color: '#fff' },
+  savedLocDetail:{ fontSize: 13, color: 'rgba(255,255,255,0.55)' },
 
-  // Rain timeline
-  timelineContainer: { paddingVertical: 10 },
-  timelineLine: { position: 'absolute', top: '50%', left: 20, right: 20, height: 2, backgroundColor: '#cbd5e0' },
-  timelinePoints: { flexDirection: 'row', justifyContent: 'space-around' },
-  timelineCol: { alignItems: 'center' },
-  timelineValue: { fontSize: 11, fontWeight: '600', color: '#4a5568', marginBottom: 6 },
-  timelineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#5b9bd5', borderWidth: 2, borderColor: '#fff' },
-  timelineLabel: { marginTop: 6, fontSize: 12, color: '#888' },
+  // Persona chips (main)
+  pIconCircle:        { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  pIconCircleActive:  { backgroundColor: 'rgba(86,204,242,0.2)', borderColor: 'rgba(86,204,242,0.45)' },
+  pLabel:             { fontSize: 10, color: 'rgba(255,255,255,0.45)', textAlign: 'center' },
+  pLabelActive:       { color: '#56ccf2', fontWeight: '600' },
 
-  // Forecast
-  forecastRow: { flexDirection: 'row', marginBottom: 6 },
-  forecastDay: { width: 90, fontSize: 14, fontWeight: '600', color: '#4a5568' },
-  forecastVal: { flex: 1, fontSize: 14, color: '#4a5568' },
+  // Alerts
+  severeAlert: { backgroundColor: 'rgba(239,68,68,0.18)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.35)', borderRadius: 16, padding: 14, marginBottom: 12 },
+  severeTitle: { fontSize: 13, fontWeight: '800', color: '#fca5a5', marginBottom: 4 },
+  severeMsg:   { fontSize: 13, color: '#fca5a5' },
 
-  // Explanation
-  explanationText: { marginTop: 8, fontSize: 12, color: '#718096', fontStyle: 'italic', backgroundColor: 'rgba(0,0,0,0.03)', padding: 8, borderRadius: 8 },
+  // Weather
+  tempBig:    { fontSize: 60, fontWeight: '800', color: '#fff', lineHeight: 68 },
+  metricRow:  { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 },
+  metricIcon: { fontSize: 14 },
+  metricTxt:  { fontSize: 14, color: 'rgba(255,255,255,0.68)' },
+
+  // Rain curve
+  curveAxisLabel: { fontSize: 10, color: 'rgba(255,255,255,0.38)', marginBottom: 0 },
+
+  // Dual row
+  dualRow:     { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  glassCardSm: { flex: 1, ...G, padding: 16, alignItems: 'center', borderRadius: 20 },
+  smLabel:     { fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 },
+  smValue:     { fontSize: 34, fontWeight: '800', color: '#fff', marginTop: 2 },
+
+  // Widget
+  widgetKey:   { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
+  routeLegLabel: { fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 4 },
+  routeTemp:   { fontSize: 18, fontWeight: '700', color: '#fff', marginTop: 4 },
+  arrow:       { fontSize: 18, color: 'rgba(255,255,255,0.3)', position: 'absolute', right: -8, top: 28 },
 
   // Error
-  errorText: { color: 'red', textAlign: 'center', fontSize: 16, marginTop: 40 },
+  errorTxt: { color: '#fca5a5', textAlign: 'center', fontSize: 15, marginTop: 40 },
 
-  // Bottom Tab Bar
-  bottomBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 10,
-    paddingBottom: Platform.OS === 'web' ? 10 : 28,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    ...Platform.select({
-      web: { backdropFilter: 'blur(14px)', boxShadow: '0 -2px 16px rgba(0,0,0,0.06)' },
-      default: { shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 8 },
-    }),
+  // Bottom Nav
+  bottomNav: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
+    paddingBottom: Platform.OS === 'ios' ? 20 : 10, paddingTop: 8,
+    backgroundColor: 'rgba(10,20,50,0.97)',
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)',
   },
-  tab: { alignItems: 'center', paddingVertical: 4 },
-  tabIcon: { fontSize: 22 },
-  tabIconActive: { fontSize: 22 },
-  tabLabel: { fontSize: 12, color: '#888', marginTop: 2 },
-  tabLabelActive: { fontSize: 12, color: '#5b9bd5', fontWeight: '700', marginTop: 2 },
+  navTab:         { alignItems: 'center', flex: 1, paddingVertical: 4 },
+  navIcon:        { fontSize: 22, opacity: 0.35 },
+  navIconActive:  { opacity: 1 },
+  navLabel:       { fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 2 },
+  navLabelActive: { color: '#56ccf2', fontWeight: '700', opacity: 1 },
+
+  // FAB
+  fabWrap: { width: 60, height: 60, borderRadius: 30, marginBottom: 12, shadowColor: '#56ccf2', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 14, elevation: 14 },
+  fab:     { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center' },
+  fabIcon: { fontSize: 26 },
 });
