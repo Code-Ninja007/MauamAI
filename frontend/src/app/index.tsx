@@ -10,6 +10,9 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import Svg, { Path, Circle, Text as SvgText } from 'react-native-svg';
+import { Image } from 'react-native';
+
+const LogoImage = require('../../assets/images/app-icon.jpg');
 
 const { width } = Dimensions.get('window');
 
@@ -93,14 +96,9 @@ export default function App() {
   const [triggerAlert, setTriggerAlert]           = useState(false);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [memoryProfile, setMemoryProfile]         = useState<any>(null);
-  const [showSaved, setShowSaved]                 = useState(false);
+  const [showSearch, setShowSearch]               = useState(false);
+  const [searchCity, setSearchCity]               = useState('');
   const [activeTab, setActiveTab]                 = useState('dashboard');
-
-  const savedLocations = [
-    { name: 'Gorakhpur', temp: 33, aqi: 142 },
-    { name: 'New Delhi', temp: 33, aqi: 189 },
-    { name: 'Gonmutaha', temp: 34, aqi: 110 },
-  ];
 
   // Load saved profile
   useEffect(() => {
@@ -162,7 +160,7 @@ export default function App() {
       const t = setTimeout(() => fetchHomeData(), 500);
       return () => clearTimeout(t);
     }
-  }, [activePersona, triggerAlert, isOnboarding, destination]);
+  }, [activePersona, triggerAlert, isOnboarding, destination, locationName]);
 
   const updatePersona = async (id: string) => {
     setActivePersona(id);
@@ -179,7 +177,7 @@ export default function App() {
         <SafeAreaView style={styles.flex}>
           <ScrollView contentContainerStyle={styles.obScroll}>
             <View style={styles.obHeader}>
-              <Text style={styles.emblemLarge}>🪬</Text>
+              <Image source={LogoImage} style={{ width: 64, height: 64, borderRadius: 32, marginBottom: 12, resizeMode: 'cover' }} />
               <Text style={styles.obTitle}>MAUSAM SATHI</Text>
               <Text style={styles.obIMD}>INDIA METEOROLOGICAL DEPARTMENT</Text>
             </View>
@@ -252,7 +250,7 @@ export default function App() {
         <FadeSlide delay={0}>
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <Text style={styles.emblemMd}>🪬</Text>
+              <Image source={LogoImage} style={{ width: 40, height: 40, borderRadius: 20, resizeMode: 'cover', marginRight: 10 }} />
               <View>
                 <Text style={styles.appTitle}>MAUSAM SATHI</Text>
                 <Text style={styles.imdText}>INDIA METEOROLOGICAL DEPARTMENT</Text>
@@ -265,35 +263,81 @@ export default function App() {
         </FadeSlide>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-
-          {/* ── LOCATION BAR ── */}
-          <FadeSlide delay={80}>
-            <View style={styles.locationBar}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={{ fontSize: 15 }}>📍</Text>
-                <Text style={styles.locName}>{locationName.toUpperCase()}</Text>
-                <View style={styles.dots}>
-                  <View style={[styles.dot, styles.dotActive]} />
-                  <View style={styles.dot} />
-                  <View style={styles.dot} />
-                </View>
+          
+          {activeTab === 'maps' && (
+            <FadeSlide delay={0}>
+              <View style={[styles.glassCard, { marginTop: 40, alignItems: 'center', paddingVertical: 60 }]}>
+                <Text style={{ fontSize: 60, marginBottom: 20 }}>🗺️</Text>
+                <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold' }}>Interactive Map</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 10 }}>
+                  Showing radar and weather layers for {locationName}. (Map integration active)
+                </Text>
               </View>
-              <TouchableOpacity style={styles.savedBtn} onPress={() => setShowSaved(v => !v)}>
-                <Text style={styles.savedBtnTxt}>🏙 Saved Locations</Text>
+            </FadeSlide>
+          )}
+
+          {activeTab === 'alerts' && (
+            <FadeSlide delay={0}>
+              <View style={[styles.glassCard, { marginTop: 40 }]}>
+                <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 15 }}>🔔 Active Alerts</Text>
+                {homeData?.alert ? (
+                  <View style={[styles.severeAlert, { marginBottom: 15 }]}>
+                    <Text style={styles.severeTitle}>⚠ {homeData.alert.message}</Text>
+                    <Text style={{ color: '#fff', opacity: 0.8, marginTop: 5 }}>Issued for {locationName}</Text>
+                  </View>
+                ) : (
+                  <Text style={{ color: 'rgba(255,255,255,0.7)' }}>No severe weather alerts for {locationName} at this time.</Text>
+                )}
+                <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 15 }} />
+                <Text style={{ color: '#fff', fontSize: 16 }}>Regional Advisories</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', marginTop: 5 }}>All clear.</Text>
+              </View>
+            </FadeSlide>
+          )}
+
+          {activeTab === 'dashboard' && (
+            <>
+              {/* ── LOCATION BAR ── */}
+              <FadeSlide delay={80}>
+            <View style={styles.locationBar}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                <Text style={{ fontSize: 15 }}>📍</Text>
+                <Text style={styles.locName} numberOfLines={1}>{locationName.toUpperCase()}</Text>
+              </View>
+              <TouchableOpacity style={styles.savedBtn} onPress={() => { setShowSearch(v => !v); setSearchCity(''); }}>
+                <Text style={styles.savedBtnTxt}>{showSearch ? '✕ Close' : '🔍 Change City'}</Text>
               </TouchableOpacity>
             </View>
 
-            {showSaved && (
-              <View style={[styles.glassCard, { marginTop: 4 }]}>
-                {savedLocations.map((loc, i) => (
-                  <TouchableOpacity key={i} style={styles.savedRow} onPress={() => { setLocationName(loc.name); setShowSaved(false); }}>
-                    <Text style={styles.savedLocName}>{loc.name}</Text>
-                    <View style={{ flexDirection: 'row', gap: 14 }}>
-                      <Text style={styles.savedLocDetail}>{loc.temp}°C Current</Text>
-                      <Text style={[styles.savedLocDetail, { color: '#f59e0b' }]}>AQI {loc.aqi}</Text>
-                    </View>
+            {showSearch && (
+              <View style={[styles.glassCard, { marginTop: 4, paddingVertical: 10 }]}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TextInput 
+                    style={[styles.input, { flex: 1, marginBottom: 0, height: 44 }]} 
+                    placeholder="Search a city... (e.g. Pune)" 
+                    placeholderTextColor="rgba(255,255,255,0.4)" 
+                    value={searchCity} 
+                    onChangeText={setSearchCity} 
+                    onSubmitEditing={() => { 
+                      if (searchCity.trim()) { 
+                        setLocationName(searchCity.trim()); 
+                        setShowSearch(false); 
+                      } 
+                    }}
+                    returnKeyType="search"
+                  />
+                  <TouchableOpacity 
+                    style={[styles.detectBtn, { width: 50, height: 44, borderRadius: 10 }]} 
+                    onPress={() => {
+                      if (searchCity.trim()) { 
+                        setLocationName(searchCity.trim()); 
+                        setShowSearch(false); 
+                      }
+                    }}
+                  >
+                    <Text style={{ fontSize: 16 }}>Go</Text>
                   </TouchableOpacity>
-                ))}
+                </View>
               </View>
             )}
           </FadeSlide>
@@ -433,6 +477,8 @@ export default function App() {
               <View style={{ height: 110 }} />
             </>
           ) : null}
+            </>
+          )}
         </ScrollView>
 
         {/* ── BOTTOM NAV ── */}
