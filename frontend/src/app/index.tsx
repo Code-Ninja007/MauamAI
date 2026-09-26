@@ -284,11 +284,28 @@ export default function App() {
   const uvStatus = uvWidget?.data?.status ?? '--';
   const weatherIcon = WEATHER_ICONS[condition] || '🌤️';
 
+  const getDynamicBackground = () => {
+    const hour = new Date().getHours();
+    const isNight = hour < 6 || hour > 18;
+    const cond = (condition || '').toLowerCase();
+    
+    if (isNight) {
+      return ['#0f2027', '#203a43', '#2c5364']; // Deep night
+    }
+    if (cond.includes('rain') || cond.includes('storm')) {
+      return ['#4b6cb7', '#182848']; // Moody dark rainy blue
+    }
+    if (cond.includes('cloud')) {
+      return ['#8e9eab', '#eef2f3']; // Frosted silver clouds
+    }
+    return ['#56ccf2', '#2f80ed']; // Bright sunny blue
+  };
+
   return (
-    <LinearGradient colors={['#dbe9f8', '#eef3fa', '#f5f7fb']} style={styles.container}>
+    <LinearGradient colors={getDynamicBackground()} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        <FadeSlideCard delay={0} style={styles.header}>
+        <FadeSlideCard delay={0} style={[styles.header, styles.glassCard, { marginBottom: 12, paddingVertical: 12, paddingHorizontal: 16 }]}>
           <View>
             <Text style={styles.greetingText}>Hello, {username}</Text>
             <Text style={styles.headerTitle}>Mausam AI+</Text>
@@ -416,7 +433,7 @@ export default function App() {
                          </View>
                       </View>
                     )}
-                    {widget.explanation && <Text style={styles.explanationText}>💡 {widget.explanation}</Text>}
+                    {/* Removed Score Explanation for cleaner UI */}
                   </FadeSlideCard>
                 );
               }
@@ -430,9 +447,7 @@ export default function App() {
                       {Array.isArray(value) ? value.join(', ') : String(value)}
                     </Text>
                   ))}
-                  {widget.explanation && (
-                    <Text style={styles.explanationText}>💡 {widget.explanation}</Text>
-                  )}
+                  {/* Removed Score Explanation for cleaner UI */}
                 </FadeSlideCard>
               );
             })}
@@ -485,7 +500,7 @@ const styles = StyleSheet.create({
   locationText: { color: '#fff', fontWeight: '600', fontSize: 14 },
 
   // Alert button
-  alertBtn: { alignSelf: 'center', borderWidth: 2, borderColor: '#e8a838', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 8, marginBottom: 16 },
+  alertBtn: { alignSelf: 'center', borderWidth: 2, borderColor: '#e8a838', backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 8, marginBottom: 16 },
   alertBtnActive: { backgroundColor: '#e8a838' },
   alertBtnText: { color: '#333', fontWeight: '700', fontSize: 14 },
 
