@@ -1,0 +1,50 @@
+# ========================
+# Python Backend
+# ========================
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/mausam.db
+backend/.env
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ========================
+# React Native / Expo Frontend
+# ========================
+frontend/node_modules/
+frontend/.expo/
+frontend/dist/
+frontend/web-build/
+frontend/android/build/
+frontend/android/.gradle/
+frontend/android/app/build/
+frontend/android/local.properties
+frontend/android/.cxx/
+frontend/ios/build/
+frontend/ios/Pods/
+frontend/*.jks
+frontend/*.keystore
+*.apk
+*.aab
+
+# ========================
+# Environment files
+# ========================
+.env
+.env.local
+.env.production
+*.env
+
+# ========================
+# OS / Editor
+# ========================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
