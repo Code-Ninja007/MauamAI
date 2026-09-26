@@ -13,7 +13,7 @@
 | Service | URL |
 |---|---|
 | 📱 **Download APK** | [Click to Download](https://github.com/Code-Ninja007/MauamAI/releases/download/v1.0.0/app-release.apk) |
-| 🌐 **Landing Page** | [mauamai.vercel.app](https://mauamai.vercel.app) |
+| 🌐 **Landing Page** | [mauamai.vercel.app](https://mauam-ai.vercel.app/) |
 | ⚙️ **Backend API** | [mauamai-production.up.railway.app](https://mauamai-production.up.railway.app) |
 
 ---
