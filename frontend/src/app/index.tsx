@@ -11,7 +11,7 @@ import * as Location from 'expo-location';
 const { width } = Dimensions.get('window');
 
 // ⚡ CHANGE THIS to your Railway URL after deploying (e.g. https://mausam-ai-production.up.railway.app)
-const API_BASE_URL = 'http://192.168.1.36:8000';
+const API_BASE_URL = 'https://mauamai-production.up.railway.app';
 
 const PERSONAS = [
   { id: 'commuter', label: 'Commute', icon: '🚌' },
