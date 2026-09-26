@@ -33,6 +33,7 @@
 
 **Other highlights:**
 - 🎨 Glassmorphic UI with smooth animations
+- 🌅 **Dynamic Weather Gradients** — Backgrounds automatically adapt to the current time of day and live weather conditions (Sunny, Night, Rainy, Cloudy)
 - 🗺️ Route Weather — origin → en route → destination
 - 👤 Lightweight onboarding (name + auto-detect location + persona)
 - ☁️ Backend hosted on Railway, APK distributed via GitHub Releases
