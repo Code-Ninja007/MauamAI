@@ -10,6 +10,9 @@ import * as Location from 'expo-location';
 
 const { width } = Dimensions.get('window');
 
+// ⚡ CHANGE THIS to your Railway URL after deploying (e.g. https://mausam-ai-production.up.railway.app)
+const API_BASE_URL = 'http://192.168.1.36:8000';
+
 const PERSONAS = [
   { id: 'commuter', label: 'Commute', icon: '🚌' },
   { id: 'fitness', label: 'Fitness', icon: '🏃' },
@@ -180,7 +183,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      let url = `http://192.168.1.36:8000/api/personalized-home?persona=${activePersona}&location=${locationName}&username=${username}&trigger_alert=${triggerAlert}`;
+      let url = `${API_BASE_URL}/api/personalized-home?persona=${activePersona}&location=${locationName}&username=${username}&trigger_alert=${triggerAlert}`;
       if (activePersona === 'traveler' && destination) {
         url += `&destination=${encodeURIComponent(destination)}`;
       }
