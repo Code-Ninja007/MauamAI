@@ -3,93 +3,324 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mausam AI+ | Download</title>
+    <title>Mausam Sathi | IMD App Download</title>
+    <!-- Three.js via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #0d1b3e; /* Deep Navy fallback */
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 20px;
+            overflow: hidden; /* For full screen canvas */
+            color: white;
         }
+
+        #webgl-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            background: linear-gradient(135deg, #0a1128 0%, #162754 100%);
+        }
+
+        /* Glassmorphic Card */
         .card {
-            background: rgba(255,255,255,0.95);
-            border-radius: 28px;
-            padding: 48px 36px;
-            max-width: 420px;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 36px;
+            padding: 50px 40px;
+            max-width: 480px;
             width: 100%;
             text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+            position: relative;
+            z-index: 10;
+            animation: float 6s ease-in-out infinite;
         }
-        .emoji-icon { font-size: 64px; margin-bottom: 16px; }
-        h1 { font-size: 32px; font-weight: 800; color: #1a1a2e; margin-bottom: 8px; }
-        .tagline { font-size: 16px; color: #666; margin-bottom: 28px; line-height: 1.5; }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-12px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .logo-img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            margin-bottom: 24px;
+            box-shadow: 0 0 40px rgba(212, 175, 55, 0.3);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            object-fit: cover;
+            animation: pulse-glow 3s infinite alternate;
+        }
+
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 30px rgba(212, 175, 55, 0.2); }
+            100% { box-shadow: 0 0 50px rgba(212, 175, 55, 0.6); }
+        }
+
+        h1 { 
+            font-size: 38px; 
+            font-weight: 800; 
+            color: #ffffff; 
+            margin-bottom: 6px; 
+            letter-spacing: 2px;
+            text-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        
+        .imd-text {
+            font-size: 11px;
+            color: #d4af37; /* Gold */
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-bottom: 28px;
+            font-weight: 600;
+        }
+
+        .tagline { 
+            font-size: 16px; 
+            color: rgba(255,255,255,0.85); 
+            margin-bottom: 36px; 
+            line-height: 1.6; 
+        }
+
         .features {
             text-align: left;
-            background: #f0f4ff;
-            border-radius: 16px;
-            padding: 20px 24px;
-            margin-bottom: 28px;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 24px;
+            padding: 28px;
+            margin-bottom: 36px;
+            border: 1px solid rgba(255,255,255,0.05);
+            box-shadow: inset 0 2px 20px rgba(0,0,0,0.3);
         }
-        .features h3 { font-size: 14px; color: #444; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
-        .feature-item { font-size: 14px; color: #555; padding: 6px 0; display: flex; align-items: center; gap: 10px; }
+
+        .features h3 { 
+            font-size: 13px; 
+            color: #d4af37; 
+            margin-bottom: 18px; 
+            text-transform: uppercase; 
+            letter-spacing: 2px; 
+        }
+
+        .feature-item { 
+            font-size: 15px; 
+            color: rgba(255,255,255,0.9); 
+            padding: 9px 0; 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+        }
+
         .download-btn {
             display: inline-block;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
+            background: linear-gradient(135deg, #d4af37, #f3e5ab);
+            color: #0d1b3e;
             text-decoration: none;
-            padding: 18px 48px;
-            border-radius: 16px;
+            padding: 20px 50px;
+            border-radius: 22px;
             font-size: 18px;
-            font-weight: 700;
-            transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+            font-weight: 800;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 40px rgba(212, 175, 55, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            width: 100%;
         }
-        .download-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5); }
-        .download-btn:active { transform: translateY(0); }
+
+        .download-btn:hover { 
+            transform: translateY(-4px) scale(1.03); 
+            box-shadow: 0 15px 50px rgba(212, 175, 55, 0.6); 
+        }
+        
+        .download-btn:active { 
+            transform: translateY(1px); 
+        }
+
         .install-note {
-            margin-top: 20px;
-            font-size: 12px;
-            color: #999;
+            margin-top: 24px;
+            font-size: 13px;
+            color: rgba(255,255,255,0.4);
             line-height: 1.6;
         }
-        .install-note strong { color: #666; }
-        .badge { display: inline-block; background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 20px; }
-        .team { margin-top: 24px; font-size: 13px; color: #aaa; }
+
+        .install-note strong { color: rgba(255,255,255,0.6); }
+        .badge { 
+            position: absolute;
+            top: -14px;
+            right: 30px;
+            background: #d4af37; 
+            color: #0d1b3e; 
+            padding: 6px 16px; 
+            border-radius: 20px; 
+            font-size: 13px; 
+            font-weight: 900; 
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
+
+    <div id="webgl-container"></div>
+
     <div class="card">
-        <div class="emoji-icon">🌦️</div>
-        <h1>Mausam AI+</h1>
-        <span class="badge">v1.0.0 • Android</span>
-        <p class="tagline">Adaptive, persona-based weather intelligence.<br>Your weather, your way.</p>
+        <div class="badge">v1.1.0 • APK</div>
+        <img src="logo.jpg" alt="Mausam Sathi Logo" class="logo-img" />
+        
+        <h1>MAUSAM SATHI</h1>
+        <div class="imd-text">India Meteorological Department</div>
+        
+        <p class="tagline">Interactive, persona-based weather intelligence.<br>Designed for India. Built for you.</p>
 
         <div class="features">
-            <h3>✨ Highlights</h3>
-            <div class="feature-item">🧠 AI-powered personalized widgets</div>
-            <div class="feature-item">🏃 8 Smart Personas — Fitness, Health, Travel & more</div>
-            <div class="feature-item">🗺️ Route Weather — see conditions along your journey</div>
-            <div class="feature-item">📊 AQI, UV, Pollen, Tides, Comfort Index</div>
-            <div class="feature-item">🎨 Beautiful glassmorphic UI with animations</div>
+            <h3>✨ Flagship Features</h3>
+            <div class="feature-item">📍 <strong>Global Search:</strong> Live weather for any city</div>
+            <div class="feature-item">🗺️ <strong>Interactive Maps:</strong> Live radar integration</div>
+            <div class="feature-item">🔔 <strong>Severe Alerts:</strong> Real-time regional warnings</div>
+            <div class="feature-item">🎨 <strong>Glassmorphic UI:</strong> Premium visual experience</div>
+            <div class="feature-item">🧠 <strong>Smart Personas:</strong> 8 tailored weather profiles</div>
         </div>
 
-        <!-- UPDATE THIS URL after uploading APK to GitHub Releases -->
         <a href="https://github.com/Code-Ninja007/MauamAI/releases/download/v1.0.0/app-release.apk" class="download-btn" id="downloadBtn">
-            📥 Download APK
+            Download App
         </a>
 
         <div class="install-note">
-            <strong>How to install:</strong><br>
-            1. Tap Download → Open the APK file<br>
-            2. Allow "Install from unknown sources" if prompted<br>
-            3. Tap Install → Open the app
+            <strong>Android Installation:</strong><br>
+            Download APK → Allow "Unknown Sources" → Install
         </div>
-
-        <div class="team">Team Blue Merry </div>
     </div>
+
+    <!-- WebGL Three.js Animation Script -->
+    <script>
+        // Set up scene, camera, and renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 1500);
+        camera.position.z = 500;
+
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('webgl-container').appendChild(renderer.domElement);
+
+        // Add 3D interactive particles (Dynamic Weather / Rain / Stars)
+        const particleCount = 3000;
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(particleCount * 3);
+        const velocities = [];
+
+        for (let i = 0; i < particleCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 2000;
+            positions[i * 3 + 1] = Math.random() * 2000 - 1000;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 2000;
+
+            // Velocity (Rain effect)
+            velocities.push(0);
+            velocities.push(Math.random() * -3 - 1); // falling down
+            velocities.push(0);
+        }
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+        // Create canvas texture for glowing particles
+        const canvas = document.createElement('canvas');
+        canvas.width = 16;
+        canvas.height = 16;
+        const ctx = canvas.getContext('2d');
+        const gradient = ctx.createRadialGradient(8, 8, 0, 8, 8, 8);
+        gradient.addColorStop(0, 'rgba(212, 175, 55, 1)');
+        gradient.addColorStop(1, 'rgba(212, 175, 55, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 16, 16);
+        const particleTexture = new THREE.CanvasTexture(canvas);
+
+        const material = new THREE.PointsMaterial({
+            color: 0xffffff,
+            size: 6,
+            map: particleTexture,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+
+        const particles = new THREE.Points(geometry, material);
+        scene.add(particles);
+
+        // Mouse Interaction
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetX = 0;
+        let targetY = 0;
+
+        const windowHalfX = window.innerWidth / 2;
+        const windowHalfY = window.innerHeight / 2;
+
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX - windowHalfX) * 0.3;
+            mouseY = (event.clientY - windowHalfY) * 0.3;
+        });
+
+        // Touch Interaction for mobile
+        document.addEventListener('touchmove', (event) => {
+            if (event.touches.length > 0) {
+                mouseX = (event.touches[0].clientX - windowHalfX) * 0.5;
+                mouseY = (event.touches[0].clientY - windowHalfY) * 0.5;
+            }
+        }, { passive: true });
+
+        // Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Smooth mouse follow
+            targetX = mouseX * 0.001;
+            targetY = mouseY * 0.001;
+
+            particles.rotation.x += 0.0005 + targetY * 0.05;
+            particles.rotation.y += 0.0005 + targetX * 0.05;
+
+            // Animate rain falling
+            const positionsAttribute = geometry.getAttribute('position');
+            for (let i = 0; i < particleCount; i++) {
+                let y = positionsAttribute.getY(i);
+                y += velocities[i * 3 + 1];
+                
+                // Reset if it falls off screen
+                if (y < -1000) {
+                    y = 1000;
+                }
+                positionsAttribute.setY(i, y);
+            }
+            positionsAttribute.needsUpdate = true;
+
+            // Gentle camera float based on mouse
+            camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.02;
+            camera.position.y += (-mouseY * 0.5 - camera.position.y) * 0.02;
+            camera.lookAt(scene.position);
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Handle Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
 </body>
 </html>
