@@ -11,6 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import Svg, { Path, Circle, Text as SvgText } from 'react-native-svg';
 import { Image } from 'react-native';
+import { WebView } from 'react-native-webview';
 
 const LogoImage = require('../../assets/images/app-icon.jpg');
 
@@ -99,10 +100,17 @@ export default function App() {
   const [showSearch, setShowSearch]               = useState(false);
   const [searchCity, setSearchCity]               = useState('');
   const [activeTab, setActiveTab]                 = useState('dashboard');
+  const [savedLocations, setSavedLocations]       = useState<string[]>([]);
+  const [mapUrl, setMapUrl]                       = useState('');
 
   // Load saved profile
   useEffect(() => {
     (async () => {
+      try {
+        const rawLoc = await AsyncStorage.getItem('savedLocations');
+        if (rawLoc) setSavedLocations(JSON.parse(rawLoc));
+      } catch {}
+
       try {
         const raw = await AsyncStorage.getItem('userProfile');
         if (raw) {
@@ -122,6 +130,20 @@ export default function App() {
       }
     })();
   }, []);
+
+  // Update map coordinates when location changes
+  useEffect(() => {
+    (async () => {
+      if (!locationName) return;
+      try {
+        const geo = await Location.geocodeAsync(locationName);
+        if (geo.length > 0) {
+          const { latitude, longitude } = geo[0];
+          setMapUrl(`https://embed.windy.com/embed.html?type=map&location=coordinates&lat=${latitude}&lon=${longitude}&zoom=7&level=surface&overlay=rain&menu=&message=&marker=true&detail=&detailLat=${latitude}&detailLon=${longitude}&metricWind=m%2Fs&metricTemp=%C2%B0C&radarRange=-1`);
+        }
+      } catch (e) {}
+    })();
+  }, [locationName]);
 
   const detectLocation = async () => {
     setIsDetectingLocation(true);
@@ -266,12 +288,24 @@ export default function App() {
           
           {activeTab === 'maps' && (
             <FadeSlide delay={0}>
-              <View style={[styles.glassCard, { marginTop: 40, alignItems: 'center', paddingVertical: 60 }]}>
-                <Text style={{ fontSize: 60, marginBottom: 20 }}>🗺️</Text>
-                <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold' }}>Interactive Map</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 10 }}>
-                  Showing radar and weather layers for {locationName}. (Map integration active)
-                </Text>
+              <View style={[styles.glassCard, { marginTop: 4, padding: 0, overflow: 'hidden', height: Dimensions.get('window').height * 0.65 }]}>
+                {mapUrl ? (
+                  <WebView 
+                    source={{ uri: mapUrl }} 
+                    style={{ flex: 1, width: '100%', height: '100%', backgroundColor: 'transparent' }} 
+                    javaScriptEnabled={true}
+                    domStorageEnabled={true}
+                    scrollEnabled={false}
+                  />
+                ) : (
+                  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+                    <ActivityIndicator size="large" color="#56ccf2" />
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 15 }}>Loading Interactive Radar Map...</Text>
+                  </View>
+                )}
+                <View style={{ position: 'absolute', bottom: 10, left: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.6)', padding: 10, borderRadius: 10 }}>
+                   <Text style={{ color: '#fff', fontSize: 13, textAlign: 'center' }}>Showing live weather radar for {locationName.toUpperCase()}</Text>
+                </View>
               </View>
             </FadeSlide>
           )}
@@ -310,7 +344,28 @@ export default function App() {
             </View>
 
             {showSearch && (
-              <View style={[styles.glassCard, { marginTop: 4, paddingVertical: 10 }]}>
+              <View style={[styles.glassCard, { marginTop: 4, paddingVertical: 12 }]}>
+                {savedLocations.length > 0 && (
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 8, textTransform: 'uppercase', fontWeight: 'bold' }}>Saved Locations</Text>
+                    {savedLocations.map((loc, i) => (
+                      <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' }}>
+                        <TouchableOpacity style={{ flex: 1 }} onPress={() => { setLocationName(loc); setShowSearch(false); }}>
+                          <Text style={{ color: '#fff', fontSize: 16 }}>{loc}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => {
+                          const newSaved = savedLocations.filter(l => l !== loc);
+                          setSavedLocations(newSaved);
+                          AsyncStorage.setItem('savedLocations', JSON.stringify(newSaved));
+                        }}>
+                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 18 }}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 6, textTransform: 'uppercase', fontWeight: 'bold' }}>Search New City</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <TextInput 
                     style={[styles.input, { flex: 1, marginBottom: 0, height: 44 }]} 
@@ -338,6 +393,19 @@ export default function App() {
                     <Text style={{ fontSize: 16 }}>Go</Text>
                   </TouchableOpacity>
                 </View>
+
+                {locationName && !savedLocations.includes(locationName) && savedLocations.length < 4 && (
+                  <TouchableOpacity style={{ marginTop: 12, alignSelf: 'flex-start', backgroundColor: 'rgba(86,204,242,0.1)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(86,204,242,0.3)' }} onPress={() => {
+                    const newSaved = [...savedLocations, locationName];
+                    setSavedLocations(newSaved);
+                    AsyncStorage.setItem('savedLocations', JSON.stringify(newSaved));
+                  }}>
+                    <Text style={{ color: '#56ccf2', fontSize: 14, fontWeight: 'bold' }}>+ Save {locationName}</Text>
+                  </TouchableOpacity>
+                )}
+                {savedLocations.length >= 4 && !savedLocations.includes(locationName) && (
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 8 }}>Max 4 saved locations reached.</Text>
+                )}
               </View>
             )}
           </FadeSlide>
