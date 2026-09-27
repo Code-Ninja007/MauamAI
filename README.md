@@ -210,7 +210,7 @@ MauamAI/
 
 <div align="center">
 
-**Built with ❤️ for Smart India Hackathon 2024**
+**Built with ❤️ for Smart India Hackathon 2026**
 
 *Ministry of Earth Sciences | Mausam Sathi Team*
 
