@@ -236,7 +236,7 @@ export default function App() {
             <View style={styles.obHeader}>
               <Image source={LogoImage} style={{ width: 64, height: 64, borderRadius: 32, marginBottom: 12, resizeMode: 'cover' }} />
               <Text style={styles.obTitle}>MAUSAM SATHI</Text>
-              <Text style={styles.obIMD}>INDIA METEOROLOGICAL DEPARTMENT</Text>
+              <Text style={styles.obIMD}>MINISTRY OF EARTH SCIENCES</Text>
             </View>
 
             <View style={styles.glassCard}>
@@ -327,12 +327,9 @@ export default function App() {
               <Image source={LogoImage} style={{ width: 40, height: 40, borderRadius: 20, resizeMode: 'cover', marginRight: 10 }} />
               <View>
                 <Text style={styles.appTitle}>MAUSAM SATHI</Text>
-                <Text style={styles.imdText}>INDIA METEOROLOGICAL DEPARTMENT</Text>
+                <Text style={styles.imdText}>MINISTRY OF EARTH SCIENCES</Text>
               </View>
             </View>
-            <TouchableOpacity onPress={() => setIsOnboarding(true)} style={{ opacity: 0.4 }}>
-              <Text style={{ fontSize: 22 }}>⚙️</Text>
-            </TouchableOpacity>
           </View>
         </FadeSlide>
 
@@ -657,15 +654,15 @@ const styles = StyleSheet.create({
   header:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10 },
   headerLeft:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
   emblemMd:     { fontSize: 46 },
-  appTitle:     { fontSize: 20, fontWeight: '900', color: '#fff', letterSpacing: 2 },
-  imdText:      { fontSize: 9, color: 'rgba(255,255,255,0.45)', letterSpacing: 1.2, marginTop: 2 },
+  appTitle:     { fontSize: 20, fontWeight: '900', color: '#fff', letterSpacing: 2, textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  imdText:      { fontSize: 9, color: 'rgba(255,255,255,0.7)', letterSpacing: 1.2, marginTop: 2, textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
 
   // Scroll
   scroll: { paddingHorizontal: 16, paddingBottom: 20 },
 
   // Glass card
   glassCard: { ...G, padding: 16, marginBottom: 12 },
-  cardLabel:  { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 },
+  cardLabel:  { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.75)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
 
   // Inputs
   inputLabel:   { fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 8, fontWeight: '600' },
@@ -678,7 +675,7 @@ const styles = StyleSheet.create({
 
   // Location bar
   locationBar:   { ...G, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 13, marginBottom: 8 },
-  locName:       { fontSize: 17, fontWeight: '800', color: '#fff', letterSpacing: 1 },
+  locName:       { fontSize: 17, fontWeight: '800', color: '#fff', letterSpacing: 1, textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
   dots:          { flexDirection: 'row', gap: 4, marginLeft: 8 },
   dot:           { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.22)' },
   dotActive:     { width: 16, backgroundColor: '#56ccf2', borderRadius: 3 },
@@ -700,10 +697,10 @@ const styles = StyleSheet.create({
   severeMsg:   { fontSize: 13, color: '#fca5a5' },
 
   // Weather
-  tempBig:    { fontSize: 60, fontWeight: '800', color: '#fff', lineHeight: 68 },
+  tempBig:    { fontSize: 60, fontWeight: '800', color: '#fff', lineHeight: 68, textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
   metricRow:  { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 },
   metricIcon: { fontSize: 14 },
-  metricTxt:  { fontSize: 14, color: 'rgba(255,255,255,0.68)' },
+  metricTxt:  { fontSize: 14, color: 'rgba(255,255,255,0.85)', textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
 
   // Rain curve
   curveAxisLabel: { fontSize: 10, color: 'rgba(255,255,255,0.38)', marginBottom: 0 },
