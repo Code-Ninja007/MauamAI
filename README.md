@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/screenshot.jpg" alt="Mausam Sathi App Preview" width="280"/>
+<img src="assets/screenshott.jpeg" alt="Mausam Sathi App Preview" width="280"/>
 
 # 🌦️ Mausam Sathi
 
