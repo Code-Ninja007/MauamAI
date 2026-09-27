@@ -57,6 +57,8 @@ function FadeSlide({ children, delay = 0, style }: any) {
 function RainCurve({ rainProb, locationName = '' }: { rainProb: number, locationName?: string }) {
   const W = width - 64;
   const H = 72;
+  const graphLeft = 32; // space for y-axis labels
+  const graphW = W - graphLeft;
   
   // Create a pseudo-random hash based on location name to make curves look distinct
   const hash = locationName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -64,7 +66,7 @@ function RainCurve({ rainProb, locationName = '' }: { rainProb: number, location
   const factor2 = ((hash * 2) % 10) / 10;
   const factor3 = ((hash * 3) % 10) / 10;
   
-  const p = (x: number, baseFrac: number, randFactor: number) => {
+  const p = (xOffset: number, baseFrac: number, randFactor: number) => {
     // scale the probability by the base fraction and add a little pseudo-randomness
     let adjustedProb = rainProb * baseFrac * (0.8 + randFactor * 0.4);
     // cap at 100%
@@ -74,7 +76,7 @@ function RainCurve({ rainProb, locationName = '' }: { rainProb: number, location
     if (rainProb === 0) adjustedProb = 0;
     
     return {
-      x,
+      x: graphLeft + xOffset,
       y: H - Math.max(4, (adjustedProb * H) / 100),
       val: Math.round(adjustedProb)
     };
@@ -82,19 +84,22 @@ function RainCurve({ rainProb, locationName = '' }: { rainProb: number, location
   
   const pts = [
     p(0, 1.0, 0.5), 
-    p(W * 0.25, 0.8, factor1), 
-    p(W * 0.5, 0.6, factor2), 
-    p(W * 0.75, 0.9, factor3), 
-    p(W, 1.1, 0.5)
+    p(graphW * 0.25, 0.8, factor1), 
+    p(graphW * 0.5, 0.6, factor2), 
+    p(graphW * 0.75, 0.9, factor3), 
+    p(graphW, 1.1, 0.5)
   ];
-  const d = `M${pts[0].x},${pts[0].y} C${pts[0].x + W * 0.1},${pts[0].y} ${pts[1].x - W * 0.1},${pts[1].y} ${pts[1].x},${pts[1].y} S${pts[2].x - W * 0.08},${pts[2].y} ${pts[2].x},${pts[2].y} S${pts[3].x - W * 0.08},${pts[3].y} ${pts[3].x},${pts[3].y} S${pts[4].x - W * 0.08},${pts[4].y} ${pts[4].x},${pts[4].y}`;
+  
+  const d = `M${pts[0].x},${pts[0].y} C${pts[0].x + graphW * 0.1},${pts[0].y} ${pts[1].x - graphW * 0.1},${pts[1].y} ${pts[1].x},${pts[1].y} S${pts[2].x - graphW * 0.08},${pts[2].y} ${pts[2].x},${pts[2].y} S${pts[3].x - graphW * 0.08},${pts[3].y} ${pts[3].x},${pts[3].y} S${pts[4].x - graphW * 0.08},${pts[4].y} ${pts[4].x},${pts[4].y}`;
   const labels = ['Now', '1h', '3h', '6h'];
   return (
     <View>
-      {['100%', '50%', '0%'].map(l => (
-        <Text key={l} style={styles.curveAxisLabel}>{l}</Text>
-      ))}
       <Svg width={W} height={H + 22}>
+        {/* Y-Axis Labels inside SVG */}
+        <SvgText x={0} y={10} fontSize="11" fill="rgba(255,255,255,0.6)">100%</SvgText>
+        <SvgText x={0} y={H / 2 + 5} fontSize="11" fill="rgba(255,255,255,0.6)">50%</SvgText>
+        <SvgText x={0} y={H} fontSize="11" fill="rgba(255,255,255,0.6)">0%</SvgText>
+
         <Path d={d} stroke="rgba(86,204,242,0.9)" strokeWidth="2.5" fill="none" />
         {[pts[0], pts[1], pts[2], pts[3]].map((pt, i) => (
           <Circle key={i} cx={pt.x} cy={pt.y} r="4" fill="#56ccf2" />
@@ -294,8 +299,25 @@ export default function App() {
   };
 
   // ── MAIN SCREEN ───────────────────────────────────────────────
+  const getBgColors = () => {
+    if (!homeData || !homeData.widgets) return ['#0d1b3e', '#0f2147', '#132158']; // Default fallback
+    
+    const cw = homeData.widgets.find((w: any) => w.type === 'current_weather');
+    const condition = cw?.data?.condition || 'Clear';
+    const hour = new Date().getHours();
+    const isNight = hour < 6 || hour > 18;
+
+    if (condition.includes('Rain') || condition.includes('Drizzle')) return ['#2C3E50', '#34495E', '#1C2833'];
+    if (condition.includes('Thunderstorm')) return ['#141E30', '#243B55', '#0F2027'];
+    if (condition.includes('Cloud')) return isNight ? ['#2C3E50', '#1C2833', '#111822'] : ['#546A7B', '#7A8C99', '#637A8C'];
+    if (condition.includes('Haze') || condition.includes('Mist') || condition.includes('Fog')) return isNight ? ['#202428', '#2C3E50', '#1A252C'] : ['#8e9eab', '#b0c4de', '#8e9eab'];
+    
+    // Clear
+    return isNight ? ['#0B1021', '#1B2745', '#081426'] : ['#2980B9', '#6DD5FA', '#2980B9'];
+  };
+
   return (
-    <LinearGradient colors={['#0d1b3e', '#0f2147', '#132158']} style={styles.flex}>
+    <LinearGradient colors={getBgColors()} style={styles.flex}>
       <SafeAreaView style={styles.flex}>
 
         {/* ── HEADER ── */}
@@ -412,7 +434,7 @@ export default function App() {
                     returnKeyType="search"
                   />
                   <TouchableOpacity 
-                    style={[styles.detectBtn, { width: 50, height: 44, borderRadius: 10 }]} 
+                    style={[styles.detectBtn, { width: 60, height: 44, borderRadius: 10, padding: 0, justifyContent: 'center', alignItems: 'center' }]} 
                     onPress={() => {
                       if (searchCity.trim()) { 
                         setLocationName(searchCity.trim()); 
@@ -420,7 +442,7 @@ export default function App() {
                       }
                     }}
                   >
-                    <Text style={{ fontSize: 16 }}>Go</Text>
+                    <Text style={{ fontSize: 16, color: '#fff' }}>Go</Text>
                   </TouchableOpacity>
                 </View>
 
