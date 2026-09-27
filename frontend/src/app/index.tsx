@@ -23,7 +23,7 @@ const PERSONAS = [
   { id: 'fitness',     label: 'Fitness',     icon: '🏃' },
   { id: 'agriculture', label: 'Agriculture',  icon: '🌾' },
   { id: 'traveler',    label: 'Travel',       icon: '✈️' },
-  { id: 'beach',       label: 'Beach/Surf',   icon: '🏄' },
+  { id: 'adventure',   label: 'Beach/Surf',   icon: '🏄' },
   { id: 'health',      label: 'Health',       icon: '🩺' },
   { id: 'commuter',    label: 'Commute',      icon: '🚌' },
   { id: 'family',      label: 'Family',       icon: '👨‍👩‍👧' },
@@ -54,14 +54,39 @@ function FadeSlide({ children, delay = 0, style }: any) {
 }
 
 // ── SVG Rain Probability Curve ─────────────────────────────────
-function RainCurve({ rainProb }: { rainProb: number }) {
+function RainCurve({ rainProb, locationName = '' }: { rainProb: number, locationName?: string }) {
   const W = width - 64;
   const H = 72;
-  const p = (x: number, frac: number) => ({
-    x,
-    y: H - Math.max(4, (rainProb * frac * H) / 100),
-  });
-  const pts = [p(0, 0.3), p(W * 0.25, 0.55), p(W * 0.5, 1.0), p(W * 0.75, 0.7), p(W, 0.4)];
+  
+  // Create a pseudo-random hash based on location name to make curves look distinct
+  const hash = locationName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const factor1 = (hash % 10) / 10;
+  const factor2 = ((hash * 2) % 10) / 10;
+  const factor3 = ((hash * 3) % 10) / 10;
+  
+  const p = (x: number, baseFrac: number, randFactor: number) => {
+    // scale the probability by the base fraction and add a little pseudo-randomness
+    let adjustedProb = rainProb * baseFrac * (0.8 + randFactor * 0.4);
+    // cap at 100%
+    if (adjustedProb > 100) adjustedProb = 100;
+    // minimal baseline
+    if (rainProb > 0 && adjustedProb < 10) adjustedProb = 10;
+    if (rainProb === 0) adjustedProb = 0;
+    
+    return {
+      x,
+      y: H - Math.max(4, (adjustedProb * H) / 100),
+      val: Math.round(adjustedProb)
+    };
+  };
+  
+  const pts = [
+    p(0, 1.0, 0.5), 
+    p(W * 0.25, 0.8, factor1), 
+    p(W * 0.5, 0.6, factor2), 
+    p(W * 0.75, 0.9, factor3), 
+    p(W, 1.1, 0.5)
+  ];
   const d = `M${pts[0].x},${pts[0].y} C${pts[0].x + W * 0.1},${pts[0].y} ${pts[1].x - W * 0.1},${pts[1].y} ${pts[1].x},${pts[1].y} S${pts[2].x - W * 0.08},${pts[2].y} ${pts[2].x},${pts[2].y} S${pts[3].x - W * 0.08},${pts[3].y} ${pts[3].x},${pts[3].y} S${pts[4].x - W * 0.08},${pts[4].y} ${pts[4].x},${pts[4].y}`;
   const labels = ['Now', '1h', '3h', '6h'];
   return (
@@ -77,6 +102,11 @@ function RainCurve({ rainProb }: { rainProb: number }) {
         {[pts[0].x, pts[1].x, pts[2].x, pts[3].x].map((x, i) => (
           <SvgText key={i} x={x} y={H + 18} fontSize="11" fill="rgba(255,255,255,0.55)" textAnchor="middle">
             {labels[i]}
+          </SvgText>
+        ))}
+        {[pts[0], pts[1], pts[2], pts[3]].map((pt, i) => (
+          <SvgText key={`val-${i}`} x={pt.x} y={pt.y - 10} fontSize="10" fill="#56ccf2" textAnchor="middle" fontWeight="bold">
+            {pt.val}%
           </SvgText>
         ))}
       </Svg>
@@ -457,7 +487,7 @@ export default function App() {
                   <Text style={styles.cardLabel}>Current Weather</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <View>
-                      <Text style={styles.tempBig}>{Math.round(temp as number)}°C</Text>
+                      <Text style={styles.tempBig}>{isNaN(Number(temp)) ? '--' : Math.round(Number(temp))}°C</Text>
                       <View style={styles.metricRow}>
                         <Text style={styles.metricIcon}>💨</Text>
                         <Text style={styles.metricTxt}>Wind: {wind} m/s</Text>
@@ -492,7 +522,7 @@ export default function App() {
               <FadeSlide delay={360}>
                 <View style={styles.glassCard}>
                   <Text style={styles.cardLabel}>Rain Probability Timeline</Text>
-                  <RainCurve rainProb={rainProb as number} />
+                  <RainCurve rainProb={rainProb as number} locationName={locationName} />
                 </View>
               </FadeSlide>
 
