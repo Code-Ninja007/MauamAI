@@ -9,7 +9,7 @@
 **An AI-powered hyperlocal weather app built for India's diverse needs**
 
 [![Ministry of Earth Sciences](https://img.shields.io/badge/Built%20for-Ministry%20of%20Earth%20Sciences-blue?style=for-the-badge)](https://moes.gov.in)
-[![Smart India Hackathon](https://img.shields.io/badge/Smart%20India%20Hackathon-2024-orange?style=for-the-badge)](https://www.sih.gov.in)
+[![Smart India Hackathon](https://img.shields.io/badge/Smart%20India%20Hackathon-2026-orange?style=for-the-badge)](https://www.sih.gov.in)
 [![Backend](https://img.shields.io/badge/Backend-Live%20on%20Railway-brightgreen?style=for-the-badge)](https://mauamai-production.up.railway.app)
 [![APK](https://img.shields.io/badge/Download-APK%20v1.0-purple?style=for-the-badge)](https://github.com/Code-Ninja007/MauamAI/releases)
 
