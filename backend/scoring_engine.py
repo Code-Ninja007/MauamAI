@@ -105,12 +105,12 @@ def rank_widgets(persona: str, weather_data: dict, current_hour: int = 12, desti
         elif w["type"] == "running_window": data = derive_running_window(weather_data, current_hour)
         elif w["type"] == "commute_window": data = derive_commute_weather(weather_data)
         elif w["type"] == "packing_recommendation": data = derive_packing_guide(dest_weather if dest_weather else weather_data)
-        elif w["type"] == "rain_forecast": data = {"chance": f"{weather_data.get('rain_prob', 0)}%"}
-        elif w["type"] == "agriculture_indicator": data = {"soil_moisture": "Optimal", "pest_risk": "Low"}
-        elif w["type"] == "uv": data = {"index": weather_data.get("uv", 5), "status": "Moderate"}
-        elif w["type"] == "aqi": data = {"value": weather_data.get("aqi", 50), "status": "Good"}
-        elif w["type"] == "hourly_forecast": data = {"next_hour": f"{weather_data.get('temp', 25)}°C, Clear"}
-        elif w["type"] == "rainfall": data = {"amount": "12mm in last 24h"}
+        elif w["type"] == "rain_forecast": data = {"chance": f"{weather_data.get('rain_prob', 0)}%", "next_3h": f"{max(0, weather_data.get('rain_prob', 0) - 10)}%", "next_6h": f"{max(0, weather_data.get('rain_prob', 0) - 25)}%"}
+        elif w["type"] == "agriculture_indicator": data = {"soil_moisture": "Optimal" if weather_data.get("recent_rain_mm", 0) > 5 else "Low", "pest_risk": "High" if weather_data.get("humidity", 50) > 75 else "Low"}
+        elif w["type"] == "uv": data = {"index": weather_data.get("uv", 5), "status": "Low" if weather_data.get("uv", 5) < 3 else ("Moderate" if weather_data.get("uv", 5) < 6 else ("High" if weather_data.get("uv", 5) < 8 else "Very High"))}
+        elif w["type"] == "aqi": data = {"value": weather_data.get("aqi", 50), "status": "Good" if weather_data.get("aqi", 50) <= 50 else ("Moderate" if weather_data.get("aqi", 50) <= 100 else ("Unhealthy" if weather_data.get("aqi", 50) <= 150 else "Poor"))}
+        elif w["type"] == "hourly_forecast": data = {"next_hour": f"{weather_data.get('temp', 25)}\u00b0C, {weather_data.get('condition', 'Clear')}"}
+        elif w["type"] == "rainfall": data = {"amount": f"{weather_data.get('recent_rain_mm', 0)}mm in last 24h"}
         elif w["type"] == "rain_probability": data = {"probability": f"{weather_data.get('rain_prob', 0)}%"}
         elif w["type"] == "visibility": data = {"distance": "10 km"}
         

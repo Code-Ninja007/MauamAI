@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from database import SessionLocal, User, UserPersona, Location, WeatherCache, engine
 from weather_api import fetch_real_weather
@@ -61,27 +61,59 @@ async def get_personalized_home(persona: str = "fitness", location: str = "Kanpu
             up.persona_name = persona
             db.commit()
 
-    # 2. Weather Integration: Origin
+    # 2. Weather Integration: Origin (cache expires after 10 min)
+    CACHE_TTL = timedelta(minutes=10)
     weather_entry = db.query(WeatherCache).filter(WeatherCache.location == location).first()
-    if not weather_entry:
+    if weather_entry and hasattr(weather_entry, 'updated_at') and weather_entry.updated_at:
+        try:
+            if datetime.utcnow() - weather_entry.updated_at > CACHE_TTL:
+                weather_data = await fetch_real_weather(location)
+                weather_entry.data = weather_data
+                weather_entry.updated_at = datetime.utcnow()
+                db.commit()
+            else:
+                weather_data = weather_entry.data
+        except Exception:
+            weather_data = weather_entry.data
+    elif weather_entry:
+        # No updated_at column or it's None — refresh and continue
+        weather_data = await fetch_real_weather(location)
+        weather_entry.data = weather_data
+        try:
+            weather_entry.updated_at = datetime.utcnow()
+        except Exception:
+            pass
+        db.commit()
+    else:
         weather_data = await fetch_real_weather(location)
         weather_entry = WeatherCache(location=location, data=weather_data)
         db.add(weather_entry)
         db.commit()
-    else:
-        weather_data = weather_entry.data
-        
+
     # Destination Weather
     dest_weather_data = None
     if destination:
         dest_entry = db.query(WeatherCache).filter(WeatherCache.location == destination).first()
-        if not dest_entry:
+        if dest_entry and hasattr(dest_entry, 'updated_at') and dest_entry.updated_at:
+            try:
+                if datetime.utcnow() - dest_entry.updated_at > CACHE_TTL:
+                    dest_weather_data = await fetch_real_weather(destination)
+                    dest_entry.data = dest_weather_data
+                    dest_entry.updated_at = datetime.utcnow()
+                    db.commit()
+                else:
+                    dest_weather_data = dest_entry.data
+            except Exception:
+                dest_weather_data = dest_entry.data
+        elif dest_entry:
+            dest_weather_data = await fetch_real_weather(destination)
+            dest_entry.data = dest_weather_data
+            db.commit()
+        else:
             dest_weather_data = await fetch_real_weather(destination)
             dest_entry = WeatherCache(location=destination, data=dest_weather_data)
             db.add(dest_entry)
             db.commit()
-        else:
-            dest_weather_data = dest_entry.data
 
     # 3. Dynamic Scoring Engine
     current_hour = datetime.now().hour
