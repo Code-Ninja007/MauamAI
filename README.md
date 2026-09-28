@@ -212,6 +212,6 @@ MauamAI/
 
 **Built with ❤️ for Smart India Hackathon 2026**
 
-*Ministry of Earth Sciences | Mausam Sathi Team*
+*Ministry of Earth Sciences |  Team Blue Merry*
 
 </div>
